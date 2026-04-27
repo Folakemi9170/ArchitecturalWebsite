@@ -496,3 +496,5 @@ logs/
 # Build outputs
 bin/
 obj/
+
+BenchmarkSuite1/
