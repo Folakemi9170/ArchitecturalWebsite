@@ -498,3 +498,4 @@ bin/
 obj/
 
 BenchmarkSuite1/
+**/wwwroot/uploads/
