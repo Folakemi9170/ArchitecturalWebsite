@@ -1,7 +1,4 @@
 ﻿using ArchitecturalWebsite.Application.DTOs;
-using ArchitecturalWebsite.Domain;
-using ArchitecturalWebsite.Infrastructure;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace ArchitecturalWebsite.Application.Interfaces
 {

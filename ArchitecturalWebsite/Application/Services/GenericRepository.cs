@@ -10,157 +10,41 @@ namespace ArchitecturalWebsite.Application.Services
 {
     public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
     {
-        private readonly AWDbContext _dbSet;
-        private DbSet<T> entities;
+        private readonly AWDbContext _context;
+        private DbSet<T> _dbSet;
 
-        public GenericRepository(AWDbContext dbContext)
+        public GenericRepository(AWDbContext context)
         {
-            _dbSet = dbContext;
-            entities = dbContext.Set<T>();
+            _context = context;
+            _dbSet = context.Set<T>();
         }
 
-        public T Get(int id)
+        public async Task<T?> GetByIdAsync(int id)
         {
-            var entity = entities!.SingleOrDefault(x => x.Id == id);
-
-            if (entity != null)
-            {
-                return entity;
-            }
-
-            return null;
+            return await _dbSet.FindAsync(id);
         }
 
-        public async Task<IEnumerable<T>> GetAll()
+        public async Task<T?> GetByIdWithIncludesAsync(int id, params Expression<Func<T, object>>[] includes)
         {
-            return entities.AsEnumerable();
-        }
-
-        public IEnumerable<T> GetAllByCondition(Expression<Func<T, bool>>? expression = null, List<string>? includes = null)
-        {
-            IQueryable<T> query = entities;
-            if (expression != null)
-            {
-                query = query.Where(expression);
-            }
-
-            if (includes != null)
-            {
-                foreach (var includeProperty in includes)
-                {
-                    query = query.Include(includeProperty);
-                }
-            }
-
-            var result = query.AsNoTracking().AsEnumerable();
-            return result;
-
-        }
-
-        public async Task<T?> GetByConditionAsync(Expression<Func<T, bool>> predicate, List<string>? includes = null)
-        {
-            IQueryable<T> query = entities;
-            if (includes != null)
-            {
-                foreach (var include in includes)
-                    query = query.Include(include);
-            }
-
-            return await query.FirstOrDefaultAsync(predicate);
-        }
-
-        public void InsertRange(List<T> entity)
-        {
-            if (entity == null)
-            {
-                throw new ArgumentNullException("entity");
-            }
-            entities.AddRange(entity);
-            _dbSet.SaveChanges();
-        }
-
-        public async Task<int> Insert(T entity)
-        {
-            if (entity == null)
-                throw new ArgumentNullException(nameof(entity));
-            
-            await entities.AddAsync(entity);
-            return await _dbSet.SaveChangesAsync();
-        }
-
-        public void Update(T entity)
-        {
-            if (entity == null)
-            {
-                throw new ArgumentNullException("entity");
-            }
-
-            entities.Update(entity);
-            _dbSet.SaveChanges();
-        }
-
-        public void UpdateRange(List<T> entity)
-        {
-            if (entities == null)
-            {
-                throw new ArgumentNullException(nameof(entities));
-            }
-
-            _dbSet.UpdateRange(entity);
-            _dbSet.SaveChanges();
-        }
-
-        public bool Delete(int id)
-        {
-            var entity = entities!.SingleOrDefault(x => x.Id == id);
-            if (entity != null)
-            {
-                entities.Remove(entity);
-                _dbSet.SaveChanges();
-                return true;
-            }
-            return false;
-        }
-
-
-        public bool DeleteAll(List<T> entity)
-        {
-
-            if (entity == null)
-            {
-                return false;
-            }
-            _dbSet.RemoveRange(0, entity.Count);
-            _dbSet.SaveChanges();
-            return true;
-        }
-
-        public bool Remove(int Id)
-        {
-            var entity = entities!.SingleOrDefault(x => x.Id == Id);
-            if (entity == null)
-            {
-                return false;
-            }
-            _dbSet.Remove(entity);
-            return true;
-        }
-
-        public async Task<T> GetWithIncludesAsync(int id, params Expression<Func<T, object>>[] includes)
-        {
-            IQueryable<T> query = entities;
+            IQueryable<T> query = _dbSet;
 
             foreach (var include in includes)
             {
                 query = query.Include(include);
             }
 
-            return await query.FirstOrDefaultAsync(e => EF.Property<int>(e, "Id") == id);
+            return await query.FirstOrDefaultAsync(e => e.Id == id);
         }
+
+        public async Task<IEnumerable<T>> GetAllAsync()
+        {
+            return await _dbSet.ToListAsync();
+        }
+
 
         public async Task<IEnumerable<T>> GetAllWithIncludesAsync(params Expression<Func<T, object>>[] includes)
         {
-            IQueryable<T> query = entities;
+            IQueryable<T> query = _dbSet;
 
             foreach (var include in includes)
             {
@@ -170,5 +54,84 @@ namespace ArchitecturalWebsite.Application.Services
             return await query.ToListAsync();
         }
 
+        public async Task<IEnumerable<T>> GetAllByConditionAsync( Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet.Where(predicate);
+
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+
+            return await query.ToListAsync();
+        }
+
+        public async Task<T?> GetByConditionAsync( Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+
+            return await query.FirstOrDefaultAsync(predicate);
+        }
+
+        public virtual async Task InsertAsync(T entity)
+        {
+            if (entity == null)
+                throw new ArgumentNullException(nameof(entity));
+
+            await _dbSet.AddAsync(entity);
+        }
+
+        public virtual async Task InsertRangeAsync(IEnumerable<T> entities)
+        {
+            if (entities == null)
+                throw new ArgumentNullException(nameof(entities));
+
+            await _dbSet.AddRangeAsync(entities);
+        }
+
+        public virtual void Update(T entity)
+        {
+            if (entity == null)
+                throw new ArgumentNullException(nameof(entity));
+
+            _dbSet.Update(entity);
+        }
+
+        public virtual void UpdateRange(IEnumerable<T> entities)
+        {
+            if (entities == null)
+                throw new ArgumentNullException(nameof(entities));
+
+            _dbSet.UpdateRange(entities);
+        }
+
+        public virtual async Task<bool> DeleteAsync(int id)
+        {
+            var entity = await _dbSet.FindAsync(id);
+
+            if (entity == null)
+                return false;
+
+            _dbSet.Remove(entity);
+            return true;
+        }
+
+        public virtual void DeleteRange(IEnumerable<T> entities)
+        {
+            if (entities == null)
+                throw new ArgumentNullException(nameof(entities));
+
+            _dbSet.RemoveRange(entities);
+        }
+
+        public IQueryable<T> GetQueryable()
+        {
+            return _context.Set<T>().AsQueryable();
+        }
     }
 }
